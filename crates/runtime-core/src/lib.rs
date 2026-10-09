@@ -34,7 +34,9 @@ pub struct HardwareProfile {
 }
 
 pub fn probe_host() -> HardwareProfile {
-    let logical_cpus = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
+    let logical_cpus = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1);
     let ram_mb = fs::read_to_string("/proc/meminfo")
         .ok()
         .and_then(|s| {
@@ -51,7 +53,11 @@ pub fn probe_host() -> HardwareProfile {
         .flat_map(|it| it.flatten())
         .filter_map(|entry| {
             let name = entry.file_name().to_string_lossy().into_owned();
-            if name.starts_with("renderD") { Some(format!("/dev/dri/{name}")) } else { None }
+            if name.starts_with("renderD") {
+                Some(format!("/dev/dri/{name}"))
+            } else {
+                None
+            }
         })
         .collect();
     HardwareProfile {
@@ -127,10 +133,11 @@ pub fn choose_performance(host: &HardwareProfile) -> PerformanceProfile {
 }
 
 fn command_exists(name: &str) -> bool {
-    let Some(path) = std::env::var_os("PATH") else { return false };
+    let Some(path) = std::env::var_os("PATH") else {
+        return false;
+    };
     std::env::split_paths(&path).any(|dir| dir.join(name).is_file())
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -160,7 +167,10 @@ mod tests {
             is_split_like: false,
             package_name: None,
         };
-        assert_eq!(choose_mode(&apk, &host("x86_64", 4, 16384)), ExecutionMode::LiteContainer);
+        assert_eq!(
+            choose_mode(&apk, &host("x86_64", 4, 16384)),
+            ExecutionMode::LiteContainer
+        );
     }
 
     #[test]
@@ -172,7 +182,10 @@ mod tests {
             is_split_like: false,
             package_name: None,
         };
-        assert_eq!(choose_mode(&apk, &host("x86_64", 4, 16384)), ExecutionMode::ArmTranslatedContainer);
+        assert_eq!(
+            choose_mode(&apk, &host("x86_64", 4, 16384)),
+            ExecutionMode::ArmTranslatedContainer
+        );
     }
 
     #[test]

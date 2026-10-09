@@ -1,7 +1,7 @@
 use std::fs;
 use std::io;
-use std::process::{Command, ExitStatus};
 use std::path::{Path, PathBuf};
+use std::process::{Command, ExitStatus};
 
 #[derive(Debug, Clone)]
 pub struct LxcSpec {
@@ -42,7 +42,8 @@ pub fn write_config(spec: &LxcSpec, path: impl AsRef<Path>) -> io::Result<()> {
             if let Some(name) = node.file_name().and_then(|s| s.to_str()) {
                 cfg.push_str(&format!(
                     "lxc.mount.entry = {} dev/dri/{} none bind,create=file,rw 0 0\n",
-                    node.display(), name
+                    node.display(),
+                    name
                 ));
             }
         }
@@ -53,7 +54,8 @@ pub fn write_config(spec: &LxcSpec, path: impl AsRef<Path>) -> io::Result<()> {
             if let Some(name) = node.file_name().and_then(|s| s.to_str()) {
                 cfg.push_str(&format!(
                     "lxc.mount.entry = {} dev/{} none bind,create=file,rw 0 0\n",
-                    node.display(), name
+                    node.display(),
+                    name
                 ));
             }
         }
@@ -80,7 +82,6 @@ pub fn write_config(spec: &LxcSpec, path: impl AsRef<Path>) -> io::Result<()> {
     fs::write(path, cfg)
 }
 
-
 #[derive(Debug, Clone)]
 pub struct LxcInstance {
     pub name: String,
@@ -94,19 +95,37 @@ impl LxcInstance {
 
     pub fn start(&self) -> io::Result<ExitStatus> {
         Command::new("lxc-start")
-            .args(["-P", self.lxc_path.to_string_lossy().as_ref(), "-n", &self.name, "-d"])
+            .args([
+                "-P",
+                self.lxc_path.to_string_lossy().as_ref(),
+                "-n",
+                &self.name,
+                "-d",
+            ])
             .status()
     }
 
     pub fn stop(&self) -> io::Result<ExitStatus> {
         Command::new("lxc-stop")
-            .args(["-P", self.lxc_path.to_string_lossy().as_ref(), "-n", &self.name, "-k"])
+            .args([
+                "-P",
+                self.lxc_path.to_string_lossy().as_ref(),
+                "-n",
+                &self.name,
+                "-k",
+            ])
             .status()
     }
 
     pub fn state(&self) -> io::Result<String> {
         let out = Command::new("lxc-info")
-            .args(["-P", self.lxc_path.to_string_lossy().as_ref(), "-n", &self.name, "-s"])
+            .args([
+                "-P",
+                self.lxc_path.to_string_lossy().as_ref(),
+                "-n",
+                &self.name,
+                "-s",
+            ])
             .output()?;
         if !out.status.success() {
             return Ok("UNKNOWN".to_string());

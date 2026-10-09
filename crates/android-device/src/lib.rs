@@ -46,14 +46,20 @@ pub struct AndroidDeviceClient {
 impl AndroidDeviceClient {
     pub fn discover() -> io::Result<Self> {
         let adb = find_tool("adb").ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "adb not found; run scripts/android/bootstrap-dev-android.sh or install Android platform-tools"))?;
-        let android_cli = std::env::var_os("ANDROID_CLI").map(PathBuf::from).or_else(|| find_tool("android"));
+        let android_cli = std::env::var_os("ANDROID_CLI")
+            .map(PathBuf::from)
+            .or_else(|| find_tool("android"));
         Ok(Self { adb, android_cli })
     }
 
-    pub fn from_paths(adb: PathBuf, android_cli: Option<PathBuf>) -> Self { Self { adb, android_cli } }
+    pub fn from_paths(adb: PathBuf, android_cli: Option<PathBuf>) -> Self {
+        Self { adb, android_cli }
+    }
 
     /// The exact ADB executable selected by discovery. Useful for diagnostics.
-    pub fn adb_path(&self) -> &Path { &self.adb }
+    pub fn adb_path(&self) -> &Path {
+        &self.adb
+    }
 
     fn adb_output(&self, args: &[&str]) -> io::Result<Output> {
         Command::new(&self.adb).args(args).output()
@@ -62,17 +68,31 @@ impl AndroidDeviceClient {
     pub fn devices(&self) -> io::Result<Vec<Device>> {
         let out = self.adb_output(&["devices", "-l"])?;
         if !out.status.success() {
-            return Err(io::Error::new(io::ErrorKind::Other, String::from_utf8_lossy(&out.stderr).trim().to_string()));
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                String::from_utf8_lossy(&out.stderr).trim().to_string(),
+            ));
         }
         let text = String::from_utf8_lossy(&out.stdout);
         let mut result = Vec::new();
         for line in text.lines().skip(1) {
             let mut fields = line.split_whitespace();
-            let Some(serial) = fields.next() else { continue };
+            let Some(serial) = fields.next() else {
+                continue;
+            };
             let Some(state) = fields.next() else { continue };
-            if state == "no permissions" || serial.is_empty() { continue; }
-            let transport = fields.find_map(|f| f.strip_prefix("transport_id:")).unwrap_or("").to_string();
-            result.push(Device { serial: serial.to_string(), state: state.to_string(), transport });
+            if state == "no permissions" || serial.is_empty() {
+                continue;
+            }
+            let transport = fields
+                .find_map(|f| f.strip_prefix("transport_id:"))
+                .unwrap_or("")
+                .to_string();
+            result.push(Device {
+                serial: serial.to_string(),
+                state: state.to_string(),
+                transport,
+            });
         }
         Ok(result)
     }
@@ -93,24 +113,38 @@ impl AndroidDeviceClient {
                 return Ok(chosen);
             }
             if start.elapsed() >= timeout {
-                let target = serial.map(|s| format!(" with serial {s}")).unwrap_or_default();
-                return Err(io::Error::new(io::ErrorKind::TimedOut, format!("timed out waiting for an online Android device{target}")));
+                let target = serial
+                    .map(|s| format!(" with serial {s}"))
+                    .unwrap_or_default();
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    format!("timed out waiting for an online Android device{target}"),
+                ));
             }
             std::thread::sleep(Duration::from_millis(500));
         }
     }
 
     pub fn install(&self, apk: &Path, serial: Option<&str>) -> io::Result<()> {
-        if !apk.is_file() { return Err(io::Error::new(io::ErrorKind::NotFound, format!("APK not found: {}", apk.display()))); }
+        if !apk.is_file() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("APK not found: {}", apk.display()),
+            ));
+        }
 
         let mut android_cli_failure = None;
         if let Some(android) = &self.android_cli {
             let mut cmd = Command::new(android);
             cmd.args(["--no-metrics", "install", "--no-delta"]);
-            if let Some(s) = serial { cmd.arg(format!("--device={s}")); }
+            if let Some(s) = serial {
+                cmd.arg(format!("--device={s}"));
+            }
             cmd.arg(format!("--apks={}", apk.display()));
             let out = cmd.output()?;
-            if out.status.success() { return Ok(()); }
+            if out.status.success() {
+                return Ok(());
+            }
             android_cli_failure = Some(format!(
                 "Android CLI ({}): {}",
                 out.status,
@@ -120,7 +154,9 @@ impl AndroidDeviceClient {
 
         let args0 = ["install", "-r", "-d"];
         let mut args: Vec<&str> = Vec::new();
-        if let Some(s) = serial { args.extend(["-s", s]); }
+        if let Some(s) = serial {
+            args.extend(["-s", s]);
+        }
         args.extend(args0);
         let mut cmd = Command::new(&self.adb);
         cmd.args(&args).arg(apk);
@@ -168,41 +204,76 @@ impl AndroidDeviceClient {
 
     pub fn shell(&self, serial: Option<&str>, command: &str, args: &[&str]) -> io::Result<String> {
         let mut adb_args: Vec<&str> = Vec::new();
-        if let Some(s) = serial { adb_args.extend(["-s", s]); }
-        adb_args.push("shell"); adb_args.push(command); adb_args.extend_from_slice(args);
+        if let Some(s) = serial {
+            adb_args.extend(["-s", s]);
+        }
+        adb_args.push("shell");
+        adb_args.push(command);
+        adb_args.extend_from_slice(args);
         let out = self.adb_output(&adb_args)?;
         if !out.status.success() {
-            return Err(io::Error::new(io::ErrorKind::Other, String::from_utf8_lossy(&out.stderr).trim().to_string()));
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                String::from_utf8_lossy(&out.stderr).trim().to_string(),
+            ));
         }
         Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
     }
 
     pub fn launch_package(&self, serial: Option<&str>, package: &str) -> io::Result<()> {
         validate_package_name(package)?;
-        let out = self.shell(serial, "monkey", &["-p", package, "-c", "android.intent.category.LAUNCHER", "--dbg-no-events", "1"])?;
+        let out = self.shell(
+            serial,
+            "monkey",
+            &[
+                "-p",
+                package,
+                "-c",
+                "android.intent.category.LAUNCHER",
+                "--dbg-no-events",
+                "1",
+            ],
+        )?;
         if out.is_empty() || out.contains("No activities found") || out.contains("monkey aborted") {
-            return Err(io::Error::new(io::ErrorKind::Other, format!("could not launch {package}: {out}")));
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("could not launch {package}: {out}"),
+            ));
         }
         Ok(())
     }
 
     pub fn stop_package(&self, serial: Option<&str>, package: &str) -> io::Result<()> {
         validate_package_name(package)?;
-        self.shell(serial, "am", &["force-stop", package]).map(|_| ())
+        self.shell(serial, "am", &["force-stop", package])
+            .map(|_| ())
     }
 }
 
-fn choose_online_device(devices: &[Device], requested_serial: Option<&str>) -> io::Result<Option<String>> {
-    let online: Vec<&Device> = devices.iter().filter(|device| device.state == "device").collect();
+fn choose_online_device(
+    devices: &[Device],
+    requested_serial: Option<&str>,
+) -> io::Result<Option<String>> {
+    let online: Vec<&Device> = devices
+        .iter()
+        .filter(|device| device.state == "device")
+        .collect();
     if let Some(serial) = requested_serial {
-        return Ok(online.into_iter().find(|device| device.serial.as_str() == serial).map(|device| device.serial.clone()));
+        return Ok(online
+            .into_iter()
+            .find(|device| device.serial.as_str() == serial)
+            .map(|device| device.serial.clone()));
     }
 
     match online.as_slice() {
         [] => Ok(None),
         [device] => Ok(Some(device.serial.clone())),
         _ => {
-            let serials = online.iter().map(|device| device.serial.as_str()).collect::<Vec<_>>().join(", ");
+            let serials = online
+                .iter()
+                .map(|device| device.serial.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
             Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!("multiple Android devices are online ({serials}); specify one with --serial SERIAL"),
@@ -229,12 +300,16 @@ fn find_tool(name: &str) -> Option<PathBuf> {
     let mut roots: Vec<PathBuf> = Vec::new();
     for value in ["ANDROID_SDK_ROOT", "ANDROID_HOME"] {
         if let Some(root) = std::env::var_os(value).map(PathBuf::from) {
-            if !roots.contains(&root) { roots.push(root); }
+            if !roots.contains(&root) {
+                roots.push(root);
+            }
         }
     }
     if let Some(home) = std::env::var_os("HOME") {
         let root = PathBuf::from(home).join("android-sdk");
-        if !roots.contains(&root) { roots.push(root); }
+        if !roots.contains(&root) {
+            roots.push(root);
+        }
     }
 
     for root in roots {
@@ -244,13 +319,17 @@ fn find_tool(name: &str) -> Option<PathBuf> {
             "android" => root.join("cmdline-tools/latest/bin/android"),
             other => root.join("cmdline-tools/latest/bin").join(other),
         };
-        if candidate.is_file() { return Some(candidate); }
+        if candidate.is_file() {
+            return Some(candidate);
+        }
     }
 
     let path = std::env::var_os("PATH")?;
     for dir in std::env::split_paths(&path) {
         let p = dir.join(name);
-        if p.is_file() { return Some(p); }
+        if p.is_file() {
+            return Some(p);
+        }
     }
     None
 }
@@ -265,17 +344,31 @@ mod tests {
         let mut result = Vec::new();
         for line in text.lines().skip(1) {
             let mut fields = line.split_whitespace();
-            let Some(serial) = fields.next() else { continue };
+            let Some(serial) = fields.next() else {
+                continue;
+            };
             let Some(state) = fields.next() else { continue };
-            if state == "no permissions" || serial.is_empty() { continue; }
-            let transport = fields.find_map(|f| f.strip_prefix("transport_id:")).unwrap_or("").to_string();
-            result.push(Device { serial: serial.to_string(), state: state.to_string(), transport });
+            if state == "no permissions" || serial.is_empty() {
+                continue;
+            }
+            let transport = fields
+                .find_map(|f| f.strip_prefix("transport_id:"))
+                .unwrap_or("")
+                .to_string();
+            result.push(Device {
+                serial: serial.to_string(),
+                state: state.to_string(),
+                transport,
+            });
         }
-        assert_eq!(result, vec![Device {
-            serial: "emulator-5554".to_string(),
-            state: "device".to_string(),
-            transport: "1".to_string(),
-        }]);
+        assert_eq!(
+            result,
+            vec![Device {
+                serial: "emulator-5554".to_string(),
+                state: "device".to_string(),
+                transport: "1".to_string(),
+            }]
+        );
     }
 
     #[test]
@@ -304,10 +397,8 @@ mod tests {
 
     #[test]
     fn uninstall_rejects_invalid_package_before_running_adb() {
-        let client = AndroidDeviceClient::from_paths(
-            PathBuf::from("/definitely/not/a/real/adb"),
-            None,
-        );
+        let client =
+            AndroidDeviceClient::from_paths(PathBuf::from("/definitely/not/a/real/adb"), None);
         let error = client.uninstall_package(None, "org.app;id").unwrap_err();
         assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
         assert!(error.to_string().contains("invalid Android package name"));
@@ -315,10 +406,8 @@ mod tests {
 
     #[test]
     fn empty_requested_serial_is_rejected() {
-        let client = AndroidDeviceClient::from_paths(
-            PathBuf::from("/definitely/not/a/real/adb"),
-            None,
-        );
+        let client =
+            AndroidDeviceClient::from_paths(PathBuf::from("/definitely/not/a/real/adb"), None);
         let error = client
             .wait_for_device(Some("  "), Duration::from_millis(1))
             .unwrap_err();
@@ -328,17 +417,38 @@ mod tests {
 
     #[test]
     fn automatic_selection_requires_exactly_one_online_device() {
-        let one = vec![Device { serial: "emulator-5554".into(), state: "device".into(), transport: "1".into() }];
-        assert_eq!(choose_online_device(&one, None).unwrap(), Some("emulator-5554".into()));
+        let one = vec![Device {
+            serial: "emulator-5554".into(),
+            state: "device".into(),
+            transport: "1".into(),
+        }];
+        assert_eq!(
+            choose_online_device(&one, None).unwrap(),
+            Some("emulator-5554".into())
+        );
 
         let two = vec![
-            Device { serial: "emulator-5554".into(), state: "device".into(), transport: "1".into() },
-            Device { serial: "usb-123".into(), state: "device".into(), transport: "2".into() },
+            Device {
+                serial: "emulator-5554".into(),
+                state: "device".into(),
+                transport: "1".into(),
+            },
+            Device {
+                serial: "usb-123".into(),
+                state: "device".into(),
+                transport: "2".into(),
+            },
         ];
         let error = choose_online_device(&two, None).unwrap_err();
         assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
         assert!(error.to_string().contains("--serial SERIAL"));
-        assert_eq!(choose_online_device(&two, Some("usb-123")).unwrap(), Some("usb-123".into()));
-        assert_eq!(choose_online_device(&two, Some("missing-device")).unwrap(), None);
+        assert_eq!(
+            choose_online_device(&two, Some("usb-123")).unwrap(),
+            Some("usb-123".into())
+        );
+        assert_eq!(
+            choose_online_device(&two, Some("missing-device")).unwrap(),
+            None
+        );
     }
 }

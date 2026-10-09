@@ -35,3 +35,9 @@ android-sdk/
 *.pid
 aosp/
 android-runtime-aosp/
+
+# Keep long/raw screen recordings out of the Git history by default.
+# Short optimized GIF previews may be committed under assets/demo/.
+assets/demo/*.mp4
+assets/demo/*.mov
+assets/demo/*.mkv

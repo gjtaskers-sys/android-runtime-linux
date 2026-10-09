@@ -1,11 +1,11 @@
 use android_apk_inspect::inspect;
 use android_device::{validate_package_name, AndroidDeviceClient};
-use std::time::Duration;
-use android_runtime_core::{choose_mode, choose_performance, probe_host};
 use android_runtime_core::lxc::{prepare_instance, LxcInstance, LxcSpec};
+use android_runtime_core::{choose_mode, choose_performance, probe_host};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::time::Duration;
 
 fn usage() {
     eprintln!(
@@ -23,7 +23,14 @@ fn doctor() -> ExitCode {
     println!("  LXC:                {}", yes_no(h.lxc));
     println!("  X11:                {}", yes_no(h.x11));
     println!("  Wayland:            {}", yes_no(h.wayland));
-    println!("  DRM render nodes:   {}", if h.render_nodes.is_empty() { "none".to_string() } else { h.render_nodes.join(", ") });
+    println!(
+        "  DRM render nodes:   {}",
+        if h.render_nodes.is_empty() {
+            "none".to_string()
+        } else {
+            h.render_nodes.join(", ")
+        }
+    );
     println!();
     if h.x11 {
         println!("  desktop target:     native X11 (primary target)");
@@ -34,11 +41,15 @@ fn doctor() -> ExitCode {
     }
     let profile = choose_performance(&h);
     let (w, hgt) = profile.display_size();
-    println!("  performance profile: {} ({}x{} @ {} fps)", profile.as_str(), w, hgt, profile.target_fps());
+    println!(
+        "  performance profile: {} ({}x{} @ {} fps)",
+        profile.as_str(),
+        w,
+        hgt,
+        profile.target_fps()
+    );
     ExitCode::SUCCESS
 }
-
-
 
 fn default_state_dir() -> PathBuf {
     if let Some(dir) = env::var_os("XDG_STATE_HOME") {
@@ -67,10 +78,14 @@ fn detect_binder_nodes() -> Vec<PathBuf> {
 
 fn valid_instance_name(name: &str) -> bool {
     !name.is_empty()
-        && name.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
 }
 
-fn parse_runtime_options(mut args: impl Iterator<Item = String>) -> Result<(String, PathBuf, String, PathBuf, PathBuf), String> {
+fn parse_runtime_options(
+    mut args: impl Iterator<Item = String>,
+) -> Result<(String, PathBuf, String, PathBuf, PathBuf), String> {
     let mut name = "android-runtime".to_string();
     let mut rootfs = None;
     let mut bridge = "lxcbr0".to_string();
@@ -82,8 +97,12 @@ fn parse_runtime_options(mut args: impl Iterator<Item = String>) -> Result<(Stri
             "--rootfs" => rootfs = Some(PathBuf::from(args.next().ok_or("--rootfs needs a path")?)),
             "--name" => name = args.next().ok_or("--name needs a value")?,
             "--bridge" => bridge = args.next().ok_or("--bridge needs a value")?,
-            "--display-socket" => display_socket = PathBuf::from(args.next().ok_or("--display-socket needs a path")?),
-            "--state-dir" => state_dir = PathBuf::from(args.next().ok_or("--state-dir needs a path")?),
+            "--display-socket" => {
+                display_socket = PathBuf::from(args.next().ok_or("--display-socket needs a path")?)
+            }
+            "--state-dir" => {
+                state_dir = PathBuf::from(args.next().ok_or("--state-dir needs a path")?)
+            }
             other => return Err(format!("unknown runtime option: {other}")),
         }
     }
@@ -93,33 +112,46 @@ fn parse_runtime_options(mut args: impl Iterator<Item = String>) -> Result<(Stri
     }
     let rootfs = rootfs.ok_or("runtime command requires --rootfs ROOTFS")?;
     if !rootfs.is_dir() {
-        return Err(format!("rootfs does not exist or is not a directory: {}", rootfs.display()));
+        return Err(format!(
+            "rootfs does not exist or is not a directory: {}",
+            rootfs.display()
+        ));
     }
 
     Ok((name, rootfs, bridge, display_socket, state_dir))
 }
 
 fn runtime_command(mut args: impl Iterator<Item = String>) -> Result<ExitCode, String> {
-    let Some(action) = args.next() else { return Err("missing runtime action".into()); };
+    let Some(action) = args.next() else {
+        return Err("missing runtime action".into());
+    };
     let mut remaining = args.peekable();
     match action.as_str() {
         "prepare" | "start" => {
-            let (name, rootfs, bridge, display_socket, state_dir) = parse_runtime_options(remaining)?;
+            let (name, rootfs, bridge, display_socket, state_dir) =
+                parse_runtime_options(remaining)?;
             let userdata = state_dir.join(&name).join("userdata");
             let spec = LxcSpec {
                 name: name.clone(),
                 rootfs,
-                render_nodes: probe_host().render_nodes.into_iter().map(PathBuf::from).collect(),
+                render_nodes: probe_host()
+                    .render_nodes
+                    .into_iter()
+                    .map(PathBuf::from)
+                    .collect(),
                 binder_nodes: detect_binder_nodes(),
                 display_socket,
                 userdata,
                 work_dir: state_dir.clone(),
                 veth_name: bridge,
             };
-            let instance = prepare_instance(&spec).map_err(|e| format!("cannot prepare LXC instance: {e}"))?;
+            let instance =
+                prepare_instance(&spec).map_err(|e| format!("cannot prepare LXC instance: {e}"))?;
             println!("LXC config: {}", instance.config_path().display());
             if action == "start" {
-                let status = instance.start().map_err(|e| format!("failed to execute lxc-start: {e}"))?;
+                let status = instance
+                    .start()
+                    .map_err(|e| format!("failed to execute lxc-start: {e}"))?;
                 if !status.success() {
                     return Err(format!("lxc-start failed with status {status}"));
                 }
@@ -133,22 +165,35 @@ fn runtime_command(mut args: impl Iterator<Item = String>) -> Result<ExitCode, S
             while let Some(arg) = remaining.next() {
                 match arg.as_str() {
                     "--name" => name = remaining.next().ok_or("--name needs a value")?,
-                    "--state-dir" => state_dir = PathBuf::from(remaining.next().ok_or("--state-dir needs a path")?),
+                    "--state-dir" => {
+                        state_dir =
+                            PathBuf::from(remaining.next().ok_or("--state-dir needs a path")?)
+                    }
                     other => return Err(format!("unknown runtime option: {other}")),
                 }
             }
             if !valid_instance_name(&name) {
                 return Err("invalid instance name".to_string());
             }
-            let instance = LxcInstance { name, lxc_path: state_dir };
+            let instance = LxcInstance {
+                name,
+                lxc_path: state_dir,
+            };
             if action == "stop" {
-                let status = instance.stop().map_err(|e| format!("failed to execute lxc-stop: {e}"))?;
+                let status = instance
+                    .stop()
+                    .map_err(|e| format!("failed to execute lxc-stop: {e}"))?;
                 if !status.success() {
                     return Err(format!("lxc-stop failed with status {status}"));
                 }
                 println!("stopped: {}", instance.name);
             } else {
-                println!("{}", instance.state().map_err(|e| format!("failed to query LXC: {e}"))?);
+                println!(
+                    "{}",
+                    instance
+                        .state()
+                        .map_err(|e| format!("failed to query LXC: {e}"))?
+                );
             }
             Ok(ExitCode::SUCCESS)
         }
@@ -160,9 +205,23 @@ fn apk_info(path: &Path) -> Result<ExitCode, String> {
     let info = inspect(path).map_err(|e| format!("cannot inspect {}: {e}", path.display()))?;
     println!("APK: {}", info.path.display());
     println!("  native code: {}", yes_no(info.has_native_code));
-    println!("  ABIs:         {}", if info.abis.is_empty() { "none".to_string() } else { info.abis.iter().map(|a| a.as_str()).collect::<Vec<_>>().join(", ") });
+    println!(
+        "  ABIs:         {}",
+        if info.abis.is_empty() {
+            "none".to_string()
+        } else {
+            info.abis
+                .iter()
+                .map(|a| a.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        }
+    );
     println!("  split-like:   {}", yes_no(info.is_split_like));
-    println!("  package:      {}", info.package_name.as_deref().unwrap_or("unknown"));
+    println!(
+        "  package:      {}",
+        info.package_name.as_deref().unwrap_or("unknown")
+    );
     Ok(ExitCode::SUCCESS)
 }
 
@@ -216,17 +275,24 @@ fn install(path: &Path, serial: Option<&str>, launch: bool) -> Result<ExitCode, 
         return Err(format!("APK does not exist: {}", path.display()));
     }
     let info = inspect(path).map_err(|e| format!("cannot inspect {}: {e}", path.display()))?;
-    let package = info.package_name.clone().ok_or("could not read AndroidManifest.xml package name")?;
+    let package = info
+        .package_name
+        .clone()
+        .ok_or("could not read AndroidManifest.xml package name")?;
     if launch {
         validate_package_name(&package)
             .map_err(|e| format!("APK contains an invalid package name: {e}"))?;
     }
     let client = AndroidDeviceClient::discover().map_err(|e| e.to_string())?;
     let chosen = choose_device(&client, serial)?;
-    client.install(path, Some(&chosen)).map_err(|e| format!("install failed: {e}"))?;
+    client
+        .install(path, Some(&chosen))
+        .map_err(|e| format!("install failed: {e}"))?;
     println!("installed {package} on {chosen}");
     if launch {
-        client.launch_package(Some(&chosen), &package).map_err(|e| format!("launch failed: {e}"))?;
+        client
+            .launch_package(Some(&chosen), &package)
+            .map_err(|e| format!("launch failed: {e}"))?;
         println!("launched {package}");
     }
     Ok(ExitCode::SUCCESS)
@@ -239,7 +305,9 @@ fn devices() -> Result<ExitCode, String> {
         println!("No Android devices detected.");
         println!("  ADB executable: {}", client.adb_path().display());
         println!();
-        println!("If the development emulator is not running, start it from the project directory:");
+        println!(
+            "If the development emulator is not running, start it from the project directory:"
+        );
         println!("  ./scripts/android/run-dev-android.sh");
         println!();
         println!("Then check the device list directly:");
@@ -250,7 +318,16 @@ fn devices() -> Result<ExitCode, String> {
     }
     println!("Android devices (ADB: {})", client.adb_path().display());
     for d in found {
-        println!("{}\t{}{}", d.serial, d.state, if d.transport.is_empty() { String::new() } else { format!("\ttransport:{}", d.transport) });
+        println!(
+            "{}\t{}{}",
+            d.serial,
+            d.state,
+            if d.transport.is_empty() {
+                String::new()
+            } else {
+                format!("\ttransport:{}", d.transport)
+            }
+        );
     }
     Ok(ExitCode::SUCCESS)
 }
@@ -258,7 +335,9 @@ fn devices() -> Result<ExitCode, String> {
 fn launch(package: &str, serial: Option<&str>) -> Result<ExitCode, String> {
     let client = AndroidDeviceClient::discover().map_err(|e| e.to_string())?;
     let chosen = choose_device(&client, serial)?;
-    client.launch_package(Some(&chosen), package).map_err(|e| format!("launch failed: {e}"))?;
+    client
+        .launch_package(Some(&chosen), package)
+        .map_err(|e| format!("launch failed: {e}"))?;
     println!("launched {package} on {chosen}");
     Ok(ExitCode::SUCCESS)
 }
@@ -266,14 +345,15 @@ fn launch(package: &str, serial: Option<&str>) -> Result<ExitCode, String> {
 fn stop_app(package: &str, serial: Option<&str>) -> Result<ExitCode, String> {
     let client = AndroidDeviceClient::discover().map_err(|e| e.to_string())?;
     let chosen = choose_device(&client, serial)?;
-    client.stop_package(Some(&chosen), package).map_err(|e| format!("stop failed: {e}"))?;
+    client
+        .stop_package(Some(&chosen), package)
+        .map_err(|e| format!("stop failed: {e}"))?;
     println!("stopped {package} on {chosen}");
     Ok(ExitCode::SUCCESS)
 }
 
 fn uninstall(package: &str, serial: Option<&str>) -> Result<ExitCode, String> {
-    validate_package_name(package)
-        .map_err(|error| format!("invalid package name: {error}"))?;
+    validate_package_name(package).map_err(|error| format!("invalid package name: {error}"))?;
     let client = AndroidDeviceClient::discover().map_err(|error| error.to_string())?;
     let chosen = choose_device(&client, serial)?;
     client
@@ -283,23 +363,50 @@ fn uninstall(package: &str, serial: Option<&str>) -> Result<ExitCode, String> {
     Ok(ExitCode::SUCCESS)
 }
 
-fn yes_no(value: bool) -> &'static str { if value { "yes" } else { "no" } }
+fn yes_no(value: bool) -> &'static str {
+    if value {
+        "yes"
+    } else {
+        "no"
+    }
+}
 
 fn main() -> ExitCode {
     let mut args = env::args().skip(1);
     match args.next().as_deref() {
         Some("doctor") => doctor(),
         Some("apk-info") => match args.next() {
-            Some(path) => apk_info(Path::new(&path)).unwrap_or_else(|e| { eprintln!("error: {e}"); ExitCode::from(2) }),
-            None => { usage(); ExitCode::from(2) }
+            Some(path) => apk_info(Path::new(&path)).unwrap_or_else(|e| {
+                eprintln!("error: {e}");
+                ExitCode::from(2)
+            }),
+            None => {
+                usage();
+                ExitCode::from(2)
+            }
         },
         Some("plan") => match args.next() {
-            Some(path) => plan(Path::new(&path)).unwrap_or_else(|e| { eprintln!("error: {e}"); ExitCode::from(2) }),
-            None => { usage(); ExitCode::from(2) }
+            Some(path) => plan(Path::new(&path)).unwrap_or_else(|e| {
+                eprintln!("error: {e}");
+                ExitCode::from(2)
+            }),
+            None => {
+                usage();
+                ExitCode::from(2)
+            }
         },
-        Some("runtime") => match runtime_command(args) { Ok(code) => code, Err(e) => { eprintln!("error: {e}"); ExitCode::from(2) } },
+        Some("runtime") => match runtime_command(args) {
+            Ok(code) => code,
+            Err(e) => {
+                eprintln!("error: {e}");
+                ExitCode::from(2)
+            }
+        },
         Some("install") => {
-            let Some(path) = args.next() else { usage(); return ExitCode::from(2); };
+            let Some(path) = args.next() else {
+                usage();
+                return ExitCode::from(2);
+            };
             let mut serial = None;
             let mut launch = true;
             while let Some(arg) = args.next() {
@@ -313,11 +420,20 @@ fn main() -> ExitCode {
                     _ => return invalid_arguments(format!("unknown argument: {arg}")),
                 }
             }
-            install(Path::new(&path), serial.as_deref(), launch).unwrap_or_else(|e| { eprintln!("error: {e}"); ExitCode::from(2) })
+            install(Path::new(&path), serial.as_deref(), launch).unwrap_or_else(|e| {
+                eprintln!("error: {e}");
+                ExitCode::from(2)
+            })
         }
-        Some("devices") => devices().unwrap_or_else(|e| { eprintln!("error: {e}"); ExitCode::from(2) }),
+        Some("devices") => devices().unwrap_or_else(|e| {
+            eprintln!("error: {e}");
+            ExitCode::from(2)
+        }),
         Some("launch") => {
-            let Some(package) = args.next() else { usage(); return ExitCode::from(2); };
+            let Some(package) = args.next() else {
+                usage();
+                return ExitCode::from(2);
+            };
             let mut serial = None;
             while let Some(arg) = args.next() {
                 if arg == "--serial" {
@@ -328,10 +444,16 @@ fn main() -> ExitCode {
                     return invalid_arguments(format!("unknown argument: {arg}"));
                 }
             }
-            launch(&package, serial.as_deref()).unwrap_or_else(|e| { eprintln!("error: {e}"); ExitCode::from(2) })
+            launch(&package, serial.as_deref()).unwrap_or_else(|e| {
+                eprintln!("error: {e}");
+                ExitCode::from(2)
+            })
         }
         Some("stop-app") => {
-            let Some(package) = args.next() else { usage(); return ExitCode::from(2); };
+            let Some(package) = args.next() else {
+                usage();
+                return ExitCode::from(2);
+            };
             let mut serial = None;
             while let Some(arg) = args.next() {
                 if arg == "--serial" {
@@ -342,10 +464,16 @@ fn main() -> ExitCode {
                     return invalid_arguments(format!("unknown argument: {arg}"));
                 }
             }
-            stop_app(&package, serial.as_deref()).unwrap_or_else(|e| { eprintln!("error: {e}"); ExitCode::from(2) })
+            stop_app(&package, serial.as_deref()).unwrap_or_else(|e| {
+                eprintln!("error: {e}");
+                ExitCode::from(2)
+            })
         }
         Some("uninstall") => {
-            let Some(package) = args.next() else { usage(); return ExitCode::from(2); };
+            let Some(package) = args.next() else {
+                usage();
+                return ExitCode::from(2);
+            };
             let mut serial = None;
             while let Some(arg) = args.next() {
                 if arg == "--serial" {
@@ -356,9 +484,15 @@ fn main() -> ExitCode {
                     return invalid_arguments(format!("unknown argument: {arg}"));
                 }
             }
-            uninstall(&package, serial.as_deref()).unwrap_or_else(|e| { eprintln!("error: {e}"); ExitCode::from(2) })
+            uninstall(&package, serial.as_deref()).unwrap_or_else(|e| {
+                eprintln!("error: {e}");
+                ExitCode::from(2)
+            })
         }
-        _ => { usage(); ExitCode::from(2) }
+        _ => {
+            usage();
+            ExitCode::from(2)
+        }
     }
 }
 

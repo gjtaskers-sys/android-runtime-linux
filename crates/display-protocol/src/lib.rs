@@ -140,14 +140,7 @@ mod tests {
 
     #[test]
     fn rejects_frame_memory_over_the_safety_limit() {
-        assert!(!FrameHeader::new(
-            8193,
-            8192,
-            8193 * 4,
-            DRM_FORMAT_XRGB8888,
-            1,
-        )
-        .is_valid());
+        assert!(!FrameHeader::new(8193, 8192, 8193 * 4, DRM_FORMAT_XRGB8888, 1,).is_valid());
     }
 
     #[test]
@@ -168,7 +161,15 @@ mod tests {
         assert!(valid.is_valid_for(42));
         assert!(!valid.is_valid_for(43));
         assert!(!FrameAck { status: 1, ..valid }.is_valid_for(42));
-        assert!(!FrameAck { version: VERSION + 1, ..valid }.is_valid_for(42));
-        assert!(!FrameAck { magic: [0; 8], ..valid }.is_valid_for(42));
+        assert!(!FrameAck {
+            version: VERSION + 1,
+            ..valid
+        }
+        .is_valid_for(42));
+        assert!(!FrameAck {
+            magic: [0; 8],
+            ..valid
+        }
+        .is_valid_for(42));
     }
 }

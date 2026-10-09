@@ -12,7 +12,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
@@ -45,7 +47,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Install X11 build and virtual-display dependencies
         run: sudo apt-get update && sudo apt-get install -y gcc pkg-config libx11-dev libxext-dev xvfb xauth
       - name: Build and smoke-test the native X11 display bridge

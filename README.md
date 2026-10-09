@@ -1,66 +1,67 @@
-# Android Runtime for Linux
+<p align="center">
+  <img src="assets/brand/android-runtime-logo.png" alt="Android Runtime for Linux logo" width="170">
+</p>
 
-**Status: experimental development preview — not production-ready.**
+<h1 align="center">Android Runtime for Linux</h1>
 
-Android Runtime for Linux is an early-stage project exploring how Android applications could run in native Linux desktop windows. The current reference host is Linux Mint XFCE/X11; Debian and Ubuntu are intended targets, but broader compatibility has not yet been established.
+<p align="center">
+  Explore Android applications as Linux desktop windows — without requiring every contributor to build Android from source.
+</p>
 
-The prototype combines a Rust host CLI, APK inspection and ADB management, a versioned display protocol, a native X11/XShm display helper, and tooling for a future LXC-based Android userspace. The custom Android container has not yet been demonstrated booting end to end, and real Android-rendered frames have not yet been verified in the X11 window.
+<p align="center">
+  <a href="https://github.com/gjtaskers-sys/android-runtime-linux/actions/workflows/ci.yml"><img src="https://github.com/gjtaskers-sys/android-runtime-linux/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
+  <img src="https://img.shields.io/badge/status-experimental-orange" alt="Experimental status">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache 2.0 License"></a>
+</p>
 
-> **Safety notice:** This is experimental software, not a production sandbox for untrusted APKs. Do not expose sensitive host data to Android applications through this prototype.
+> **Early-stage project:** the host-side tools and synthetic X11 display path have been tested. The custom Android container has **not** yet been demonstrated booting end to end, and real Android-rendered frames have **not** yet been verified in the desktop window. This is not a stable runtime or a security boundary for untrusted apps.
 
-## Current status
+## What works today?
 
-### Verified functionality
+- **Inspect an APK:** read package metadata and detect supported native-library ABIs.
+- **Use an Android development emulator:** the CLI has installed and launched 2048 through ADB, and the game was confirmed playable.
+- **Test the native X11 bridge:** the helper displays synthetic frames; automated tests read pixels back and verify the gradient's colors.
+- **Run repeatable checks:** Rust tests and linting, frame validation, mocked DMA-BUF synchronization, acquire-fence checks, and X11 lifecycle tests are included.
 
-The following results have been reproduced in the reference development environment:
+Those tests verify the host tools and emulator workflow. They do **not** mean an Android system image already runs inside this project's LXC container.
 
-- The Rust workspace builds; formatting and strict Clippy checks pass; all **27 workspace unit tests** pass.
-- The CLI inspected an APK, installed it on the Android SDK development emulator through ADB, and launched 2048. The game was confirmed playable in that emulator.
-- The native X11 helper receives synthetic frames over a Unix socket and displays a smooth RGB gradient. The test reads pixels back from the X11 window to verify color values and channel orientation.
-- The native display smoke test sends eight changing frames and checks acknowledgement sequencing, timeouts, socket ownership, active-server protection, window close handling, and cleanup.
-- Focused tests cover frame metadata, mocked DMA-BUF CPU-access synchronization, acquire-fence waiting, rootfs validation, safe assembly, AOSP builder preflight, and rootfs packaging.
+## Demos
 
-These results validate host-side components and the development-emulator workflow. They **do not** establish that the custom Android userspace boots in LXC or that real Android graphics reach the X11 window.
+Short demos are being prepared. The first two demonstrations will show different parts of the prototype:
 
-### Not yet verified
+1. **APK workflow:** 2048 running in the Android SDK development emulator. This demonstrates APK inspection/install/launch through the CLI; it is not yet the custom LXC runtime.
+2. **Display bridge:** the smooth RGB gradient shown in a native X11 window. These are synthetic test frames, not Android app graphics.
 
-- A complete AOSP product image built for this project.
-- Android booting and reaching service readiness inside the project's LXC configuration.
-- End-to-end presentation of real SurfaceFlinger/Composer3 client-target buffers in X11.
-- Secure production isolation, installer lifecycle, recovery behavior, and a supported distribution/kernel matrix.
-- Seamless per-app Linux windows, Wayland support, audio/camera integration, or a redistributable ARM native-translation path.
-- A distributable Android system image or stable end-user release.
+See the [recording guide](docs/RECORDING_DEMOS.md) for capture recommendations and how to add the clips when they are ready.
 
-See the [roadmap](ROADMAP.md) for current priorities and ways to contribute, and [the architecture overview](docs/ARCHITECTURE.md) for the proposed design.
+## Getting started
 
-## Repository contents
+You do **not** need to build AOSP to compile or test the host project. Most contributions can be made with Rust, the native display dependencies, and (for emulator testing) the Android SDK.
 
-- Rust workspace for APK inspection, ABI/package handling, device selection, runtime policy, CLI operations, and display-protocol definitions.
-- Native C X11/XShm display helper with synthetic-frame, pixel-readback, and lifecycle tests.
-- Android-side host-display integration scaffolding and an AOSP product overlay.
-- Scripts for development-emulator setup, Android image/rootfs validation, safe assembly, contributor artifact packaging, and host-readiness diagnostics.
-- CI for Rust checks, native X11 tests under Xvfb, and rootfs/preflight fixtures.
+### 1. Install host dependencies
 
-## Quick start: host checks
-
-The project uses the Rust stable toolchain declared in `rust-toolchain.toml`. Install Rust with `rustup`, including `rustfmt` and `clippy`, and install the native test dependencies on Debian, Ubuntu, or Linux Mint:
+On Ubuntu 24.04, Debian 13, or a compatible Linux Mint release:
 
 ```bash
 sudo apt update
 sudo apt install build-essential pkg-config libx11-dev libxext-dev xvfb xauth zstd
 ```
 
-Run the Rust quality gates:
+Install Rust using [rustup](https://rustup.rs/); the required stable toolchain and the `rustfmt` and `clippy` components are declared in `rust-toolchain.toml`.
+
+### 2. Build and test
+
+Run these from the repository directory:
 
 ```bash
 cargo fmt --all
 cargo fmt --all -- --check
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
-cargo build --workspace
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo build --workspace --locked
 ```
 
-Run the focused native and packaging tests:
+Then test the host-side display bridge:
 
 ```bash
 ./scripts/test-frame-validation.sh
@@ -68,65 +69,77 @@ Run the focused native and packaging tests:
 ./scripts/test-acquire-fence-wait.sh
 ./scripts/build-x11-display.sh
 ./scripts/test-x11-display.sh
-./scripts/test-rootfs-validation.sh
-./scripts/test-rootfs-assembly-safety.sh
-./scripts/test-aosp-builder-preflight.sh
-sudo ./scripts/test-rootfs-package.sh
-./scripts/check-publication-hygiene.sh
 ```
 
-`test-x11-display.sh` normally uses an active X11 session. For a headless host, run:
+The X11 smoke test needs an X11 desktop session. For a headless system, run it using Xvfb:
 
 ```bash
 xvfb-run -a -s "-screen 0 1600x1400x24" ./scripts/test-x11-display.sh
 ```
 
-The display test uses synthetic frames. A passing result verifies the tested host-side display path; it is not an Android graphics integration test.
+The display test uses generated frames and checks the actual pixels in the X11 window. It does not test Android's graphics buffers.
 
-## Development Android emulator
+### 3. Try APK management through the development emulator (optional)
 
-An Android SDK Virtual Device provides a temporary backend for APK-management work. This does not require building AOSP and is not the intended production execution path.
+This path requires the Android SDK and an Android Virtual Device; it does not require a full AOSP checkout.
 
 ```bash
 ./scripts/android/bootstrap-dev-android.sh
 ./scripts/android/run-dev-android.sh
 cargo build --workspace
 ./target/debug/android-runtime devices
-./target/debug/android-runtime apk-info /path/to/app.apk
-./target/debug/android-runtime install /path/to/app.apk --serial emulator-5554
 ```
 
-Use the serial printed by `devices` if it differs. The inspect/install/launch workflow was verified with 2048 on the development emulator. See [development emulator instructions](docs/DEV_ANDROID.md) and the [APK compatibility test plan](docs/TEST_APKS.md).
-
-## Android image work
-
-Most contributors do **not** need to sync or build AOSP. The Android platform build is a separate workload for a machine with substantial RAM and free storage. Host-runtime improvements, Rust work, protocol tests, documentation, issue triage, and display-helper testing can all proceed without a full AOSP checkout.
-
-Contributors with suitable build hardware can follow the [build guide](docs/BUILDING.md) and [image handoff guide](docs/CONTRIBUTOR_IMAGE_HANDOFF.md) to produce and document a candidate Android root filesystem. A packaged rootfs is only a candidate: structure validation does not prove that it boots successfully in LXC.
-
-Host readiness checks are read-only and do not start a container or build AOSP:
+Inspect an APK you already trust:
 
 ```bash
-./scripts/android/check-container-readiness.sh
-./scripts/android/check-container-readiness.sh --rootfs /path/to/rootfs
+./target/debug/android-runtime apk-info /path/to/your-app.apk
 ```
 
-## Security and licensing
+Install and launch it, using the serial shown by `devices` if it is not `emulator-5554`:
 
-Container isolation, mount policy, Binder/GPU access, APK threat modeling, and recovery behavior require further review. Report suspected vulnerabilities using the process in [`SECURITY.md`](SECURITY.md), not in a public issue with exploit details.
+```bash
+./target/debug/android-runtime install /path/to/your-app.apk --serial emulator-5554
+```
 
-Project-authored source is licensed under Apache-2.0; see [`LICENSE`](LICENSE). The project does not bundle an AOSP checkout, Android system image, APK, Google Play image, firmware, or proprietary ARM translator. Third-party components and future image artifacts require their own provenance and redistribution review.
+**Only install APKs you trust.** The current development emulator is a testing backend, not the intended production execution path. See the [emulator guide](docs/DEV_ANDROID.md) for more detail.
 
-## Contributing
+## What still needs to be built?
 
-Contributions are welcome in testing, bug reproduction, documentation, architecture review, Rust/C development, Linux container behavior, Android graphics, and image validation. A full AOSP build is not required for ordinary host-runtime contributions.
+The largest open milestones are:
 
-Start with [`CONTRIBUTING.md`](CONTRIBUTING.md), review the [roadmap](ROADMAP.md), and choose a task that matches your environment. Please report only behavior that has actually been tested, and keep personal paths, serial numbers, credentials, and private logs out of public issues.
+1. **Boot Android in LXC:** validate a contributor-built Android root filesystem on a documented host and demonstrate Android services becoming ready.
+2. **Display real Android frames:** connect SurfaceFlinger/Composer3 client-target buffers to the host window and verify format, stride, file descriptors, fences, and synchronization end to end.
+3. **Make it usable as a desktop app:** input, keyboard and IME behavior, resizing, orientation, start/stop, and crash recovery.
+4. **Define a supportable release:** test hardware and distribution combinations, document isolation limits, and complete installation, update, licensing, and security reviews.
 
-- [Roadmap](ROADMAP.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Design rationale and references](docs/DESIGN_RATIONALE.md)
-- [Build instructions](docs/BUILDING.md)
+The [roadmap](ROADMAP.md) contains success criteria and contribution ideas for each milestone.
+
+## How can you help?
+
+You can make useful contributions without a powerful AOSP build machine. Good places to start include:
+
+- Run tests on another Linux distribution or kernel and report versions plus sanitized logs.
+- Improve onboarding, errors, tests, CI, packaging, or documentation.
+- Review the display protocol, DMA-BUF formats, synchronization, and lifetime assumptions.
+- Help with LXC configuration or Android graphics if you have relevant experience.
+- If you have suitable hardware for a full AOSP build, help produce a reproducible candidate image with source revisions, checksums, and validation results.
+
+Start with [`CONTRIBUTING.md`](CONTRIBUTING.md), then pick a task from the [roadmap](ROADMAP.md). A full AOSP build is **not** required for ordinary host-side contributions.
+
+## Project docs
+
+- [Beginner-friendly getting-started guide](docs/GETTING_STARTED.md)
+- [Demo recording and media guide](docs/RECORDING_DEMOS.md)
+- [GitHub page assets and social preview](docs/PROJECT_PAGE.md)
+- [Architecture overview](docs/ARCHITECTURE.md)
+- [Build guide](docs/BUILDING.md)
 - [Android image handoff](docs/CONTRIBUTOR_IMAGE_HANDOFF.md)
+- [Design rationale and references](docs/DESIGN_RATIONALE.md)
+- [Roadmap](ROADMAP.md)
+- [Contribution guidelines](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
-- [Support](SUPPORT.md)
+
+## License
+
+Project-authored source is licensed under Apache-2.0; see [`LICENSE`](LICENSE). Android platform components, app APKs, firmware, images, and future third-party integrations have separate licensing and redistribution considerations. No Android system image or proprietary ARM translator is included.
