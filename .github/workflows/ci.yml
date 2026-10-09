@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Check
+        run: cargo check --workspace --all-targets
+      - name: Test
+        run: cargo test --workspace --all-targets
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Install image packaging test dependency
+        run: sudo apt-get update && sudo apt-get install -y zstd
+      - name: Shell, Python, and host-side validation tests
+        run: |
+          find scripts -type f -name '*.sh' ! -path 'scripts/android/package-rootfs.sh' ! -path 'scripts/test-rootfs-package.sh' -print0 | xargs -0 -r -n1 sh -n
+          bash -n scripts/android/package-rootfs.sh scripts/test-rootfs-package.sh
+          python3 -m py_compile android/patches/apply-aosp-overlay.py
+          ./scripts/test-frame-validation.sh
+          ./scripts/test-dma-buf-sync.sh
+          ./scripts/test-acquire-fence-wait.sh
+          ./scripts/test-rootfs-validation.sh
+          ./scripts/test-rootfs-assembly-safety.sh
+          ./scripts/test-aosp-builder-preflight.sh
+          sudo ./scripts/test-rootfs-package.sh
+          ./scripts/check-publication-hygiene.sh
+
+  x11-helper:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install X11 build and virtual-display dependencies
+        run: sudo apt-get update && sudo apt-get install -y gcc pkg-config libx11-dev libxext-dev xvfb xauth
+      - name: Build and smoke-test the native X11 display bridge
+        run: xvfb-run -a -s "-screen 0 1600x1400x24" ./scripts/test-x11-display.sh

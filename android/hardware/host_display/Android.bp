@@ -1,0 +1,24 @@
+cc_library_static {
+    name: "libandroid_runtime_host_display",
+    vendor: true,
+    srcs: [
+        "HostDisplayTransport.cpp",
+        "HostDisplayPresenter.cpp",
+    ],
+    export_include_dirs: ["."],
+    shared_libs: [
+        "libbase",
+        "libdrm",
+        "liblog",
+        "libui",
+    ],
+    header_libs: [
+        "libhardware_headers",
+        "libminigbm_gralloc_headers",
+    ],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+}

@@ -1,0 +1,2 @@
+# Android Runtime container: LXC provides proc, sysfs, devtmpfs and cgroup
+# namespaces. No physical Android block devices are mounted by init.

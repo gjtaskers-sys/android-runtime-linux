@@ -1,0 +1,7 @@
+// Android Runtime device-specific build glue.
+// The actual platform image is built from an AOSP checkout; this directory is
+// copied into the checkout as a device tree and consumes the host_display
+// library above.
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}

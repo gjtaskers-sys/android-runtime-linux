@@ -1,0 +1,65 @@
+name: Bug report
+description: Report a reproducible defect in the experimental runtime
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please search existing issues first. Do not attach APKs, Android system images, credentials, or private data. Report security vulnerabilities using SECURITY.md, not a public issue.
+  - type: input
+    id: revision
+    attributes:
+      label: Project revision
+      description: Commit hash, tag, or source archive name.
+      placeholder: commit hash or source archive
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Host OS and version
+      placeholder: Linux Mint 22.x XFCE / X11
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Rust CLI / APK inspection
+        - ADB / development emulator
+        - Native X11 display
+        - Frame protocol / DMA-BUF
+        - Rootfs / AOSP tooling
+        - Documentation / CI
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include exact commands with personal paths and serials sanitized.
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and sanitized logs
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Checks already run
+      description: List relevant cargo and script test results.
+    validations:
+      required: false

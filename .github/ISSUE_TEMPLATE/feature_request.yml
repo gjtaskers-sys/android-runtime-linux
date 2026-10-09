@@ -1,0 +1,30 @@
+name: Feature request
+description: Propose a feature or architecture improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Keep requests aligned with the experimental scope. Distinguish current behavior from proposed behavior and identify any Linux/Android version or hardware constraints.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What user problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the desired behavior, not only a preferred implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Risks, alternatives, and test plan
+      description: Include performance, security, licensing, and compatibility concerns if relevant.
+    validations:
+      required: false

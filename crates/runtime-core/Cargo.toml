@@ -1,0 +1,8 @@
+[package]
+name = "android-runtime-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+android-apk-inspect = { path = "../apk-inspect" }

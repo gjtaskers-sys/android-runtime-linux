@@ -1,0 +1,16 @@
+# Android Runtime container initialization.
+# The Linux host already supplies proc/sys/dev namespaces through LXC.
+
+on early-init
+    mkdir /run 0755 root root
+    mkdir /run/android-runtime 0755 root root
+    chmod 0660 /dev/binder
+    chmod 0660 /dev/hwbinder
+    chmod 0660 /dev/vndbinder
+
+on boot
+    setprop persist.sys.usb.config none
+    setprop service.adb.tcp.port 5555
+
+# AOSP's normal userdebug adbd service remains authoritative. This image only
+# exposes it over the private LXC network for development.

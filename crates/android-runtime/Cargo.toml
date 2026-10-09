@@ -1,0 +1,14 @@
+[package]
+name = "android-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "android-runtime"
+path = "src/main.rs"
+
+[dependencies]
+android-device = { path = "../android-device" }
+android-runtime-core = { path = "../runtime-core" }
+android-apk-inspect = { path = "../apk-inspect" }

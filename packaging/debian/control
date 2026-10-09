@@ -1,0 +1,13 @@
+Source: android-runtime
+Section: misc
+Priority: optional
+Maintainer: Android Runtime contributors
+Build-Depends: debhelper-compat (= 13), gcc, pkg-config, libx11-dev, libxext-dev
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+
+Package: android-runtime
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, lxc, android-tools-adb
+Description: Lightweight Android runtime for Linux desktops
+ APK-first Android runtime targeting Debian-family Linux desktops.

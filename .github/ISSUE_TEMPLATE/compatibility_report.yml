@@ -1,0 +1,68 @@
+name: Compatibility report
+description: Report an app, APK ABI, host, or Android-image compatibility result
+title: "[Compatibility]: "
+labels: ["compatibility"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Report only what you actually tested. Do not attach APKs or system images unless redistribution rights are clear. A successful development-emulator run is different from an LXC-container run.
+  - type: input
+    id: app
+    attributes:
+      label: App name and version
+      description: Include package name if known; don't attach the APK.
+    validations:
+      required: true
+  - type: input
+    id: abi
+    attributes:
+      label: APK ABI(s)
+      placeholder: x86_64, arm64-v8a, universal, or unknown
+    validations:
+      required: false
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Backend tested
+      options:
+        - Development SDK emulator
+        - Custom LXC Android image
+        - Host-side synthetic display test only
+        - Other / not sure
+    validations:
+      required: true
+  - type: input
+    id: host
+    attributes:
+      label: Host OS, kernel, and architecture
+      placeholder: Distribution/version, kernel, x86_64/arm64
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options:
+        - Passed
+        - Failed to install
+        - Failed to launch
+        - Launches but graphics/input issue
+        - Crashed or hung
+        - Not conclusive
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps and commands
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs and notes
+      description: Remove usernames, home paths, device serials, tokens, and private data.
+    validations:
+      required: false

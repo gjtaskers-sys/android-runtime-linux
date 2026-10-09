@@ -1,0 +1,37 @@
+/target/
+*.swp
+*.tmp
+.idea/
+.vscode/
+__pycache__/
+*.py[cod]
+android-runtime-display-x11
+android-runtime-frame-smoke
+android-runtime-frame-verify
+android-runtime-window-close
+
+# Generated Android images and contributor handoff artifacts
+/out/
+*.tar.zst
+*.tar.zst.sha256
+*.tar.zst.info
+
+# Local credentials and development SDK/emulator state
+.env
+.env.*
+!.env.example
+.android/
+android-sdk/
+
+# APKs, built Android images, and other generated artifacts are not source
+*.apk
+*.apks
+*.aab
+*.img
+*.iso
+*.qcow2
+*.vmdk
+*.log
+*.pid
+aosp/
+android-runtime-aosp/
