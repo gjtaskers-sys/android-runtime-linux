@@ -504,9 +504,10 @@ fn read_manifest_entry(
                         e
                     }
                 })?;
-            let stdout = child.stdout.take().ok_or_else(|| {
-                io::Error::new(io::ErrorKind::Other, "could not read unzip output")
-            })?;
+            let stdout = child
+                .stdout
+                .take()
+                .ok_or_else(|| io::Error::other("could not read unzip output"))?;
             let mut limited = stdout.take(MAX_MANIFEST_BYTES as u64 + 1);
             let mut manifest = Vec::new();
             if let Err(e) = limited.read_to_end(&mut manifest) {

@@ -68,8 +68,7 @@ impl AndroidDeviceClient {
     pub fn devices(&self) -> io::Result<Vec<Device>> {
         let out = self.adb_output(&["devices", "-l"])?;
         if !out.status.success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
+            return Err(io::Error::other(
                 String::from_utf8_lossy(&out.stderr).trim().to_string(),
             ));
         }
@@ -174,7 +173,7 @@ impl AndroidDeviceClient {
                 message.push_str("; ");
                 message.push_str(&cli_error);
             }
-            Err(io::Error::new(io::ErrorKind::Other, message))
+            Err(io::Error::other(message))
         }
     }
 
@@ -191,14 +190,11 @@ impl AndroidDeviceClient {
             Ok(())
         } else {
             let target = serial.unwrap_or("<automatic selection>");
-            Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "adb uninstall failed for package {package} on device {target} ({}): {}",
-                    output.status,
-                    summarize_output(&output),
-                ),
-            ))
+            Err(io::Error::other(format!(
+                "adb uninstall failed for package {package} on device {target} ({}): {}",
+                output.status,
+                summarize_output(&output),
+            )))
         }
     }
 
@@ -212,8 +208,7 @@ impl AndroidDeviceClient {
         adb_args.extend_from_slice(args);
         let out = self.adb_output(&adb_args)?;
         if !out.status.success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
+            return Err(io::Error::other(
                 String::from_utf8_lossy(&out.stderr).trim().to_string(),
             ));
         }
@@ -235,10 +230,9 @@ impl AndroidDeviceClient {
             ],
         )?;
         if out.is_empty() || out.contains("No activities found") || out.contains("monkey aborted") {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("could not launch {package}: {out}"),
-            ));
+            return Err(io::Error::other(format!(
+                "could not launch {package}: {out}"
+            )));
         }
         Ok(())
     }

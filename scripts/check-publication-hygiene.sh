@@ -12,7 +12,7 @@ license_bytes="$(wc -c < LICENSE | tr -d '[:space:]')"
 (( license_bytes >= 10000 )) || fail "LICENSE is unexpectedly short (${license_bytes} bytes); include the full Apache-2.0 text"
 grep -q 'END OF TERMS AND CONDITIONS' LICENSE || fail "LICENSE does not look like the complete Apache-2.0 text"
 
-for required in README.md ROADMAP.md CONTRIBUTING.md CODE_OF_CONDUCT.md SECURITY.md SUPPORT.md Cargo.lock .github/workflows/ci.yml .github/PULL_REQUEST_TEMPLATE.md .github/ISSUE_TEMPLATE/bug_report.yml .github/ISSUE_TEMPLATE/feature_request.yml .github/ISSUE_TEMPLATE/compatibility_report.yml; do
+for required in README.md ROADMAP.md CONTRIBUTING.md CODE_OF_CONDUCT.md SECURITY.md SUPPORT.md Cargo.lock .github/workflows/ci.yml .github/PULL_REQUEST_TEMPLATE.md .github/ISSUE_TEMPLATE/bug_report.yml .github/ISSUE_TEMPLATE/feature_request.yml .github/ISSUE_TEMPLATE/compatibility_report.yml assets/demo/2048-android-sdk-emulator.mp4 assets/demo/2048-android-sdk-emulator-preview.gif assets/demo/x11-synthetic-gradient.mp4 assets/demo/x11-synthetic-gradient-preview.gif; do
   [[ -s "$required" ]] || fail "required public-project file is missing or empty: $required"
 done
 
@@ -60,5 +60,7 @@ for public_doc in README.md ROADMAP.md CONTRIBUTING.md CODE_OF_CONDUCT.md SECURI
   fi
 done
 [[ ! -e docs/PUBLICATION_CHECKLIST.md ]] || fail "remove the one-time first-publication checklist from the public package"
+[[ ! -e docs/RECORDING_DEMOS.md ]] || fail "remove the creator-only recording tutorial; public demo media belongs in assets/demo/"
+[[ ! -e docs/PROJECT_PAGE.md ]] || fail "remove the one-time project-page setup notes from the public package"
 
 printf 'publication hygiene checks passed (license, artifacts, credentials, file sizes, and public-facing documentation)\n'
