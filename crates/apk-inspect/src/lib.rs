@@ -72,8 +72,8 @@ impl ApkInfo {
                 .abis
                 .iter()
                 .any(|a| *a == Abi::Arm64 || *a == Abi::Arm32),
-            "x86" => self.abis.iter().any(|a| *a == Abi::X86),
-            "arm" | "armv7" => self.abis.iter().any(|a| *a == Abi::Arm32),
+            "x86" => self.abis.contains(&Abi::X86),
+            "arm" | "armv7" => self.abis.contains(&Abi::Arm32),
             _ => false,
         }
     }
@@ -171,7 +171,7 @@ fn string_pool_value(
         .get(pos..end)
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "AXML string truncated"))?;
     let mut words = Vec::with_capacity(units);
-    for chunk in bytes.chunks_exact(2) {
+    for chunk in bytes.chunks(2) {
         words.push(u16::from_le_bytes([chunk[0], chunk[1]]));
     }
     String::from_utf16(&words).map_err(|_| {
@@ -180,6 +180,10 @@ fn string_pool_value(
             "AXML string is not valid UTF-16",
         )
     })
+}
+
+fn range_end_exceeds_len(start: usize, size: usize, len: usize) -> bool {
+    !matches!(start.checked_add(size), Some(end) if end <= len)
 }
 
 fn parse_manifest_package(bytes: &[u8]) -> io::Result<Option<String>> {
@@ -206,9 +210,7 @@ fn parse_manifest_package(bytes: &[u8]) -> io::Result<Option<String>> {
         let chunk_size = read_u32(bytes, off + 4)? as usize;
         if header_size < 8
             || chunk_size < header_size
-            || off
-                .checked_add(chunk_size)
-                .map_or(true, |e| e > bytes.len())
+            || range_end_exceeds_len(off, chunk_size, bytes.len())
         {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -664,7 +666,7 @@ pub fn inspect(path: impl AsRef<Path>) -> io::Result<ApkInfo> {
     let mut manifest_entry: Option<ManifestEntry> = None;
 
     for _ in 0..total_entries {
-        if offset.checked_add(46).map_or(true, |end| end > cd.len()) {
+        if range_end_exceeds_len(offset, 46, cd.len()) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "truncated ZIP central directory entry",
